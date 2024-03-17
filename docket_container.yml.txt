@@ -1,0 +1,57 @@
+---
+- name: Deploy Apache Docker Container using Ansible
+  hosts: 192.168.0.33
+  become: true
+  become_method: sudo
+  tasks:
+    - name: Install pip (Python package manager) on Debian-based systems
+      package:
+        name: python3-pip
+        state: present
+      when: ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+    - name: Install Docker Python library
+      pip:
+        name: docker
+        state: present
+
+    - name: Install Docker (Debian)
+      apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Starting Docker Daemon (Debian)
+      service:
+        name: docker
+        state: started
+      when: ansible_os_family == "Debian"
+
+    - name: Pull Apache Docker Image
+      docker_image:
+        name: httpd
+        tag: latest
+        source: pull
+      register: z
+
+    - name: Configure Networking for Apache Container
+      docker_network:
+        name: apache_network
+        driver: bridge
+        ipam_config:
+          - subnet: "172.168.10.0/30"
+
+    - name: Run Apache Docker Container
+      docker_container:
+        name: apache-httpd
+        image: httpd
+        state: started
+        restart_policy: always
+        exposed_ports:
+          - "80"
+        ports:
+          - "80:80"
+        volumes:
+          - "/home/ec2-user/httpd:/usr/local/apache2/htdocs"
+        networks:
+          - name: apache_network
